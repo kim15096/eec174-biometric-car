@@ -1,6 +1,6 @@
 # unsafe_driving_detector
 
-### Please download landmarks data using this link (it's big)
+### Please download landmarks data using this link
 ### http://dlib.net/files/shape_predictor_68_face_landmarks.dat.bz2
 
 ### when you finish downloading, create a folder called "data", put .dat file in it
