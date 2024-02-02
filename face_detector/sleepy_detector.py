@@ -48,6 +48,7 @@ while(cap.isOpened()):
     
     # read frame
     _, img = cap.read()
+    e1 = cv2.getTickCount()
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     rects = detector(gray, 1)
     cv2.putText(img, "Blink Count: {}".format(blink_count), (100, 200), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
@@ -121,6 +122,12 @@ while(cap.isOpened()):
             
     if not face_detected:
         cv2.putText(img, "No Face Detected!", (100, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2, cv2.LINE_AA)
+    # stop the tick counter for computing the processing time for each frame
+    e2 = cv2.getTickCount()
+    # processign time in milliseconds
+    proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
+    cv2.putText(img, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
+                        (255, 0, 255), 1)
         
     cv2.imshow("Camera", img)
     k = cv2.waitKey(5) & 0xFF
