@@ -139,6 +139,11 @@ def main():
 
     i = 0
     time.sleep(0.01) # To prevent zero division error when calculating the FPS
+
+    roll_offset = 0
+    pitch_offset = 0
+    yaw_offset = 0
+    isCalibrated = False
     while True:  # infinite loop for webcam video capture
         t_now = time.perf_counter()
         fps = i / (t_now - t0)
@@ -192,14 +197,27 @@ def main():
             # compute the head pose
             frame_det, roll, pitch, yaw = Head_pose.get_pose(
                 frame=frame, landmarks=landmarks, frame_size=frame_size)
-            
+
+            while (isCalibrated == False):
+                print("while loop")
+                ret, frame = cap.read()
+                cv2.imshow("Press 'q' to terminate", frame)
+                if abs(roll) >5 and abs(roll) < 10 and abs(pitch) > 5 and abs(pitch)< 10 and abs(yaw) >25 and abs(yaw) < 35:
+                    roll_offset = abs(roll)
+                    pitch_offset = abs(pitch)
+                    yaw_offset = abs(yaw)
+                    isCalibrated = True
+                
+                
+                
+
              # evaluate the scores for EAR, GAZE and HEAD POSE
             asleep, looking_away, distracted = Scorer.eval_scores(t_now=t_now,
                                                                   ear_score=ear,
                                                                   gaze_score=gaze,
-                                                                  head_roll=roll,
-                                                                  head_pitch=pitch,
-                                                                  head_yaw=yaw)
+                                                                  head_roll=roll-roll_offset,
+                                                                  head_pitch=pitch+pitch_offset,
+                                                                  head_yaw=yaw+yaw_offset)
 
             # if the head pose estimation is successful, show the results
             if frame_det is not None:
