@@ -130,8 +130,8 @@ def main():
                        yaw_thresh=args.yaw_thresh, ear_time_thresh=args.ear_time_thresh,
                        gaze_thresh=args.gaze_thresh, pose_time_thresh=args.pose_time_thresh,
                        verbose=args.verbose)
-
     # capture the input from the default system camera (camera number 0)
+
     cap = cv2.VideoCapture(args.camera)
     if not cap.isOpened():  # if the camera can't be opened exit the program
         print("Cannot open camera")
@@ -144,6 +144,113 @@ def main():
     pitch_offset = 0
     yaw_offset = 0
     isCalibrated = False
+    while True:  # infinite loop for webcam video capture
+        t_now = time.perf_counter()
+        fps = i / (t_now - t0)
+        if fps == 0:
+            fps = 10
+
+        ret, frame = cap.read()  # read a frame from the webcam
+
+        if not ret:  # if a frame can't be read, exit the program
+            print("Can't receive frame from camera/stream end")
+            break
+
+         # if the frame comes from webcam, flip it so it looks like a mirror.
+        if args.camera == 0:
+            frame = cv2.flip(frame, 2)
+
+        # start the tick counter for computing the processing time for each frame
+        e1 = cv2.getTickCount()
+
+        # transform the BGR frame in grayscale
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # get the frame size
+        frame_size = frame.shape[1], frame.shape[0]
+
+        # apply a bilateral filter to lower noise but keep frame details. create a 3D matrix from gray image to give it to the model
+        gray = np.expand_dims(cv2.bilateralFilter(gray, 5, 10, 10), axis=2)
+        gray = np.concatenate([gray, gray, gray], axis=2)
+
+        # find the faces using the face mesh model
+        lms = detector.process(gray).multi_face_landmarks
+
+        if lms:  # process the frame only if at least a face is found
+            # getting face landmarks and then take only the bounding box of the biggest face
+            landmarks = _get_landmarks(lms)
+
+            # shows the eye keypoints (can be commented)
+            Eye_det.show_eye_keypoints(
+                color_frame=frame, landmarks=landmarks, frame_size=frame_size)
+
+            # compute the EAR score of the eyes
+            ear = Eye_det.get_EAR(frame=gray, landmarks=landmarks)
+
+            # compute the PERCLOS score and state of tiredness
+            tired, perclos_score = Scorer.get_PERCLOS(t_now, fps, ear)
+
+            # compute the Gaze Score
+            gaze = Eye_det.get_Gaze_Score(
+                frame=gray, landmarks=landmarks, frame_size=frame_size)
+
+            # compute the head pose
+            frame_det, roll, pitch, yaw = Head_pose.get_pose(
+                frame=frame, landmarks=landmarks, frame_size=frame_size)
+
+            ret, frame = cap.read()
+            
+            
+            if abs(roll) >5 and abs(roll) < 10 and abs(pitch) > 5 and abs(pitch)< 10 and abs(yaw) >25 and abs(yaw) < 35:
+                roll_offset = abs(roll)
+                pitch_offset = abs(pitch)
+                yaw_offset = abs(yaw)
+                break
+
+            if roll is not None:
+                cv2.putText(frame, "roll:"+str(roll.round(1)[0]), (450, 40),
+                            cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
+            if pitch is not None:
+                cv2.putText(frame, "pitch:"+str(pitch.round(1)[0]), (450, 70),
+                            cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
+            if yaw is not None:
+                cv2.putText(frame, "yaw:"+str(yaw.round(1)[0]), (450, 100),
+                            cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
+
+        # stop the tick counter for computing the processing time for each frame
+        e2 = cv2.getTickCount()
+        # processign time in milliseconds
+        proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
+        # print fps and processing time per frame on screen
+        if args.show_fps:
+            cv2.putText(frame, "FPS:" + str(round(fps)), (10, 400), cv2.FONT_HERSHEY_PLAIN, 2,
+                        (255, 0, 255), 1)
+        cv2.putText(frame, "Look at the front for 3 seconds!", (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
+                        (255, 0, 255), 1)
+
+        # show the frame on screen
+        cv2.imshow("Calibrating...", frame)
+        
+        i += 1
+    
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+
+
+
+
+
+    # capture the input from the default system camera (camera number 0)
+    cap = cv2.VideoCapture(args.camera)
+    if not cap.isOpened():  # if the camera can't be opened exit the program
+        print("Cannot open camera")
+        exit()
+
+    i = 0
+    time.sleep(0.01) # To prevent zero division error when calculating the FPS
+
     while True:  # infinite loop for webcam video capture
         t_now = time.perf_counter()
         fps = i / (t_now - t0)
