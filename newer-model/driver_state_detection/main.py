@@ -129,6 +129,10 @@ def main():
     i = 0
     time.sleep(0.01) # To prevent zero division error when calculating the FPS
     
+    roll_offset = 0
+    pitch_offset = 0
+    yaw_offset = 0
+
     while True:  # infinite loop for webcam video capture
         t_now = time.perf_counter()
         fps = i / (t_now - t0)
@@ -183,7 +187,7 @@ def main():
             frame_det, roll, pitch, yaw = Head_pose.get_pose(
                 frame=frame, landmarks=landmarks, frame_size=frame_size)
             
-            if abs(roll) >5 and abs(roll) < 10 and abs(pitch) > 5 and abs(pitch)< 10 and abs(yaw) >25 and abs(yaw) < 35:
+            if abs(roll) >0 and abs(roll) < 7 and abs(pitch) > 5 and abs(pitch)< 12 and abs(yaw) >30 and abs(yaw) < 45:
                 roll_offset = abs(roll)
                 pitch_offset = abs(pitch)
                 yaw_offset = abs(yaw)
@@ -201,45 +205,6 @@ def main():
             if frame_det is not None:
                 frame = frame_det
 
-            # show the real-time EAR score
-            if ear is not None:
-                cv2.putText(frame, "EAR:" + str(round(ear, 3)), (10, 50),
-                            cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
-
-            # show the real-time Gaze Score
-            if gaze is not None:
-                cv2.putText(frame, "Gaze Score:" + str(round(gaze, 3)), (10, 80),
-                            cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
-
-            # show the real-time PERCLOS score
-            cv2.putText(frame, "Fatigue Score:" + str(round(perclos_score, 3)), (10, 110),
-                        cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
-            
-            if roll is not None:
-                cv2.putText(frame, "roll:"+str(roll.round(1)[0]), (450, 40),
-                            cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
-            if pitch is not None:
-                cv2.putText(frame, "pitch:"+str(pitch.round(1)[0]), (450, 70),
-                            cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
-            if yaw is not None:
-                cv2.putText(frame, "yaw:"+str(yaw.round(1)[0]), (450, 100),
-                            cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
-
-            # if the driver is tired, show and alert on screen
-            if tired:
-                cv2.putText(frame, "TIRED!", (10, 280),
-                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
-
-            # if the state of attention of the driver is not normal, show an alert on screen
-            if asleep:
-                cv2.putText(frame, "ASLEEP!", (10, 300),
-                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
-            if looking_away:
-                cv2.putText(frame, "LOOKING AWAY!", (10, 320),
-                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
-            if distracted:
-                cv2.putText(frame, "DISTRACTED!", (10, 340),
-                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
 
         # stop the tick counter for computing the processing time for each frame
         e2 = cv2.getTickCount()
@@ -326,9 +291,9 @@ def main():
             asleep, looking_away, distracted = Scorer.eval_scores(t_now=t_now,
                                                                   ear_score=ear,
                                                                   gaze_score=gaze,
-                                                                  head_roll=roll,
-                                                                  head_pitch=pitch,
-                                                                  head_yaw=yaw)
+                                                                  head_roll=roll-roll_offset,
+                                                                  head_pitch=pitch+pitch_offset,
+                                                                  head_yaw=yaw+yaw_offset)
 
             # if the head pose estimation is successful, show the results
             if frame_det is not None:
@@ -373,6 +338,11 @@ def main():
             if distracted:
                 cv2.putText(frame, "DISTRACTED!", (10, 340),
                             cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+        
+        else:
+            cv2.putText(frame, "DISTRACTED!", (10, 340),
+                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+            
 
         # stop the tick counter for computing the processing time for each frame
         e2 = cv2.getTickCount()
