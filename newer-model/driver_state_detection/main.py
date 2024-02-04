@@ -100,18 +100,7 @@ def main():
             print(
                 "OpenCV optimization could not be set to True, the script may be slower than expected")
             
-    '''
-    try:
-        with open("yolo_files/coco.names", 'r') as f:
-            labels = [line.strip() for line in f]
-    except FileNotFoundError:
-        sys.exit(f"Error: File '{args.labels}' not found")
-    '''
 
-    """instantiation of mediapipe face mesh model. This model give back 478 landmarks
-    if the rifine_landmarks parameter is set to True. 468 landmarks for the face and
-    the last 10 landmarks for the irises
-    """
     detector = mp.solutions.face_mesh.FaceMesh(static_image_mode=False,
                                                min_detection_confidence=0.5,
                                                min_tracking_confidence=0.5,
@@ -130,8 +119,8 @@ def main():
                        yaw_thresh=args.yaw_thresh, ear_time_thresh=args.ear_time_thresh,
                        gaze_thresh=args.gaze_thresh, pose_time_thresh=args.pose_time_thresh,
                        verbose=args.verbose)
-    # capture the input from the default system camera (camera number 0)
 
+    # capture the input from the default system camera (camera number 0)
     cap = cv2.VideoCapture(args.camera)
     if not cap.isOpened():  # if the camera can't be opened exit the program
         print("Cannot open camera")
@@ -139,11 +128,7 @@ def main():
 
     i = 0
     time.sleep(0.01) # To prevent zero division error when calculating the FPS
-
-    roll_offset = 0
-    pitch_offset = 0
-    yaw_offset = 0
-    isCalibrated = False
+    
     while True:  # infinite loop for webcam video capture
         t_now = time.perf_counter()
         fps = i / (t_now - t0)
@@ -197,16 +182,39 @@ def main():
             # compute the head pose
             frame_det, roll, pitch, yaw = Head_pose.get_pose(
                 frame=frame, landmarks=landmarks, frame_size=frame_size)
-
-            ret, frame = cap.read()
-            
             
             if abs(roll) >5 and abs(roll) < 10 and abs(pitch) > 5 and abs(pitch)< 10 and abs(yaw) >25 and abs(yaw) < 35:
                 roll_offset = abs(roll)
                 pitch_offset = abs(pitch)
                 yaw_offset = abs(yaw)
                 break
+            
+             # evaluate the scores for EAR, GAZE and HEAD POSE
+            asleep, looking_away, distracted = Scorer.eval_scores(t_now=t_now,
+                                                                  ear_score=ear,
+                                                                  gaze_score=gaze,
+                                                                  head_roll=roll,
+                                                                  head_pitch=pitch,
+                                                                  head_yaw=yaw)
 
+            # if the head pose estimation is successful, show the results
+            if frame_det is not None:
+                frame = frame_det
+
+            # show the real-time EAR score
+            if ear is not None:
+                cv2.putText(frame, "EAR:" + str(round(ear, 3)), (10, 50),
+                            cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
+
+            # show the real-time Gaze Score
+            if gaze is not None:
+                cv2.putText(frame, "Gaze Score:" + str(round(gaze, 3)), (10, 80),
+                            cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
+
+            # show the real-time PERCLOS score
+            cv2.putText(frame, "Fatigue Score:" + str(round(perclos_score, 3)), (10, 110),
+                        cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
+            
             if roll is not None:
                 cv2.putText(frame, "roll:"+str(roll.round(1)[0]), (450, 40),
                             cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
@@ -217,6 +225,22 @@ def main():
                 cv2.putText(frame, "yaw:"+str(yaw.round(1)[0]), (450, 100),
                             cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
 
+            # if the driver is tired, show and alert on screen
+            if tired:
+                cv2.putText(frame, "TIRED!", (10, 280),
+                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+
+            # if the state of attention of the driver is not normal, show an alert on screen
+            if asleep:
+                cv2.putText(frame, "ASLEEP!", (10, 300),
+                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+            if looking_away:
+                cv2.putText(frame, "LOOKING AWAY!", (10, 320),
+                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+            if distracted:
+                cv2.putText(frame, "DISTRACTED!", (10, 340),
+                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+
         # stop the tick counter for computing the processing time for each frame
         e2 = cv2.getTickCount()
         # processign time in milliseconds
@@ -225,32 +249,25 @@ def main():
         if args.show_fps:
             cv2.putText(frame, "FPS:" + str(round(fps)), (10, 400), cv2.FONT_HERSHEY_PLAIN, 2,
                         (255, 0, 255), 1)
-        cv2.putText(frame, "Look at the front for 3 seconds!", (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
+        if args.show_proc_time:
+            cv2.putText(frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
                         (255, 0, 255), 1)
 
         # show the frame on screen
-        cv2.imshow("Calibrating...", frame)
+        cv2.imshow("Calibrating", frame)
+
+        # if the key "q" is pressed on the keyboard, the program is terminated
+        if cv2.waitKey(20) & 0xFF == ord('q'):
+            break
         
         i += 1
-    
-    cap.release()
+        
     cv2.destroyAllWindows()
-
-
-
-
-
-
-
-    # capture the input from the default system camera (camera number 0)
-    cap = cv2.VideoCapture(args.camera)
-    if not cap.isOpened():  # if the camera can't be opened exit the program
-        print("Cannot open camera")
-        exit()
-
-    i = 0
-    time.sleep(0.01) # To prevent zero division error when calculating the FPS
-
+    
+    
+    
+    
+    
     while True:  # infinite loop for webcam video capture
         t_now = time.perf_counter()
         fps = i / (t_now - t0)
@@ -304,27 +321,14 @@ def main():
             # compute the head pose
             frame_det, roll, pitch, yaw = Head_pose.get_pose(
                 frame=frame, landmarks=landmarks, frame_size=frame_size)
-
-            while (isCalibrated == False):
-                print("while loop")
-                ret, frame = cap.read()
-                cv2.imshow("Press 'q' to terminate", frame)
-                if abs(roll) >5 and abs(roll) < 10 and abs(pitch) > 5 and abs(pitch)< 10 and abs(yaw) >25 and abs(yaw) < 35:
-                    roll_offset = abs(roll)
-                    pitch_offset = abs(pitch)
-                    yaw_offset = abs(yaw)
-                    isCalibrated = True
-                
-                
-                
-
+            
              # evaluate the scores for EAR, GAZE and HEAD POSE
             asleep, looking_away, distracted = Scorer.eval_scores(t_now=t_now,
                                                                   ear_score=ear,
                                                                   gaze_score=gaze,
-                                                                  head_roll=roll-roll_offset,
-                                                                  head_pitch=pitch+pitch_offset,
-                                                                  head_yaw=yaw+yaw_offset)
+                                                                  head_roll=roll,
+                                                                  head_pitch=pitch,
+                                                                  head_yaw=yaw)
 
             # if the head pose estimation is successful, show the results
             if frame_det is not None:
