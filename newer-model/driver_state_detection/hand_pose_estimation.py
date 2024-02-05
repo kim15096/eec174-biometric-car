@@ -10,7 +10,7 @@ cap = cv2.VideoCapture(0)
 # Initialize the drawing utilities
 mp_drawing = mp.solutions.drawing_utils 
 
-with mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5) as hands:
+with mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.5) as hands:
 
     while True:
         # Read the frame from the video capture
