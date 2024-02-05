@@ -5,7 +5,6 @@ import cv2
 import numpy as np
 import mediapipe as mp
 
-from Utils import get_face_area
 from Eye_Dector_Module import EyeDetector as EyeDet
 from Pose_Estimation_Module import HeadPoseEstimator as HeadPoseEst
 from Attention_Scorer_Module import AttentionScorer as AttScorer
@@ -24,25 +23,19 @@ dist_coeffs = np.array(
     [[-0.03792548, 0.09233237, 0.00419088, 0.00317323, -0.15804257]], dtype="double")
 
 def _get_landmarks(lms):
-    surface = 0
-    for lms0 in lms:
-        landmarks = [np.array([point.x, point.y, point.z]) \
-                        for point in lms0.landmark]
+    if not lms:
+        return None
 
-        landmarks = np.array(landmarks)
+    landmarks = [np.array([point.x, point.y, point.z]) for point in lms[0].landmark]
 
-        landmarks[landmarks[:, 0] < 0., 0] = 0.
-        landmarks[landmarks[:, 0] > 1., 0] = 1.
-        landmarks[landmarks[:, 1] < 0., 1] = 0.
-        landmarks[landmarks[:, 1] > 1., 1] = 1.
+    landmarks = np.array(landmarks)
 
-        dx = landmarks[:, 0].max() - landmarks[:, 0].min()
-        dy = landmarks[:, 1].max() - landmarks[:, 1].min()
-        new_surface = dx * dy
-        if new_surface > surface:
-            biggest_face = landmarks
-    
-    return biggest_face
+    landmarks[landmarks[:, 0] < 0., 0] = 0.
+    landmarks[landmarks[:, 0] > 1., 0] = 1.
+    landmarks[landmarks[:, 1] < 0., 1] = 0.
+    landmarks[landmarks[:, 1] > 1., 1] = 1.
+
+    return landmarks
 
 
 def main():
@@ -104,7 +97,7 @@ def main():
     detector = mp.solutions.face_mesh.FaceMesh(static_image_mode=False,
                                                min_detection_confidence=0.5,
                                                min_tracking_confidence=0.5,
-                                               refine_landmarks=True)
+                                               refine_landmarks=True, max_num_faces=1 )
 
     # instantiation of the eye detector and pose estimator objects
     Eye_det = EyeDet(show_processing=args.show_eye_proc)
@@ -133,7 +126,7 @@ def main():
     pitch_offset = 0
     yaw_offset = 0
 
-    while True:  # infinite loop for webcam video capture
+    while True:  # infinite loop for calibrating
         t_now = time.perf_counter()
         fps = i / (t_now - t0)
         if fps == 0:
