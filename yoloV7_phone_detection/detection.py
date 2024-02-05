@@ -30,6 +30,22 @@ colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
 if device != 'cpu':
     model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once for warmup
 
+
+def getColor(x, y, w, h, frame):
+    cropped_img = frame[y:h, x:w]
+    cv2.imwrite("cropped_img.jpg", cropped_img)
+    gray = cv2.cvtColor(cropped_img, cv2.COLOR_BGR2GRAY)
+    gray_hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
+    top = max(gray_hist)
+    for x, y in enumerate(gray_hist):
+        if gray_hist[x] == top:
+            index = x
+            break
+    if index < 150:
+        return False
+    else:
+        return True
+
 while True:
     _, im0 = cap.read()
     e1 = cv2.getTickCount()
@@ -53,8 +69,8 @@ while True:
             det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
             x1, y1, x2, y2 = det[:, :4].cpu().numpy()[0]
             for *xyxy, conf, cls in reversed(det):
-                #label = f'{names[int(cls)]} {conf:.2f}'
-
+                if getColor(int(x1), int(y1), int(x2), int(y2), im0):
+                    cv2.putText(im0, "Screen is on", (int(x1), int(y1)), cv2.FONT_HERSHEY_PLAIN, 3, (255, 0, 0), 2)
                 plot_one_box(xyxy, im0, color=colors[int(cls)], line_thickness=3)
     e2 = cv2.getTickCount()
     # processign time in milliseconds
