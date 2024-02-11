@@ -93,6 +93,7 @@ def run(model: str, num_hands: int,
 
     # Continuously capture images from the camera and run inference
     while cap.isOpened():
+        e1 = cv2.getTickCount()
         success, image = cap.read()
         if not success:
             sys.exit(
@@ -141,19 +142,29 @@ def run(model: str, num_hands: int,
                     mp_hands.HAND_CONNECTIONS,
                     mp_drawing_styles.get_default_hand_landmarks_style(),
                     mp_drawing_styles.get_default_hand_connections_style())
+                
+                # Get landmarks for thumb and pointer finger
+                thumb_tip = hand_landmarks_proto.landmark[4]
+                index_tip = hand_landmarks_proto.landmark[8]
 
-                # Get the top left corner of the detected hand's bounding box.
-                height, width, _ = current_frame.shape
-                x_coordinates = [landmark.x for landmark in hand_landmarks]
-                y_coordinates = [landmark.y for landmark in hand_landmarks]
-                text_x = int(min(x_coordinates) * width)
-                text_y = int(min(y_coordinates) * height) - MARGIN
+                # Calculate distance between thumb and pointer finger landmarks
+                distance = ((thumb_tip.x - index_tip.x)**2 + (thumb_tip.y - index_tip.y)**2)**0.5
 
-                # Draw handedness (left or right hand) on the image.
-                cv2.putText(current_frame, f"{handedness[0].category_name}",
-                            (text_x, text_y), cv2.FONT_HERSHEY_DUPLEX,
-                            FONT_SIZE, HANDEDNESS_TEXT_COLOR, FONT_THICKNESS,
-                            cv2.LINE_AA)
+                # Set a threshold for pinch detection
+                pinch_threshold = 0.05
+
+                # If the distance is below the threshold, consider it as a pinch
+                if distance < pinch_threshold:
+                    cv2.putText(current_frame, "Pinch Detected", (10, 50), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+                    
+                        # stop the tick counter for computing the processing time for each frame
+                e2 = cv2.getTickCount()
+                # processing time in milliseconds
+                proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
+                cv2.putText(current_frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
+                        (255, 0, 255), 1)
+                
+
 
         cv2.imshow('hand_landmarker', current_frame)
 
