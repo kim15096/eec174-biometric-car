@@ -5,6 +5,7 @@ import sys
 import cv2
 import numpy as np
 import mediapipe as mp
+import os
 
 from Eye_Dector_Module import EyeDetector as EyeDet
 from Pose_Estimation_Module import HeadPoseEstimator as HeadPoseEst
@@ -23,11 +24,18 @@ mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
 
 # Global variables to calculate FPS
-COUNTER, FPS = 0, 0
 START_TIME = time.time()
 DETECTION_RESULT = None
+roll_offset = 0
+pitch_offset = 0
+yaw_offset = 0
 
 
+def save_result(result: vision.HandLandmarkerResult,
+                    unused_output_image: mp.Image, timestamp_ms: int):
+        global DETECTION_RESULT
+        DETECTION_RESULT = result
+        
 # camera matrix obtained from the camera calibration script, using a 9x6 chessboard
 camera_matrix = np.array(
     [[899.12150372, 0., 644.26261492],
@@ -55,14 +63,28 @@ def _get_landmarks(lms):
 
 
 def main():
+    
+    # Initialize the hand landmarker model
+    # Get the absolute path to the directory containing the script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # Construct the absolute path to the model asset relative to the script directory
+    model_asset_path = os.path.join(script_dir, 'hand_landmarker.task')
+    base_options = python.BaseOptions(model_asset_path=model_asset_path)
+    options = vision.HandLandmarkerOptions(
+        base_options=base_options,
+        running_mode=vision.RunningMode.LIVE_STREAM,
+        num_hands=1,
+        min_hand_detection_confidence=0.5,
+        min_hand_presence_confidence=0.5,
+        min_tracking_confidence=0.5,
+        result_callback=save_result)
+    detector = vision.HandLandmarker.create_from_options(options)
 
     parser = argparse.ArgumentParser(description='Driver State Detection')
 
     # selection the camera number, default is 0 (webcam)
     parser.add_argument('-c', '--camera', type=int,
                         default=0, metavar='', help='Camera number, default is 0 (webcam)')
-
-    # TODO: add option for choose if use camera matrix and dist coeffs
 
     # visualisation parameters
     parser.add_argument('--show_fps', type=bool, default=True,
@@ -79,7 +101,7 @@ def main():
     # Attention Scorer parameters (EAR, Gaze Score, Pose)
     parser.add_argument('--smooth_factor', type=float, default=0.5,
                         metavar='', help='Sets the smooth factor for the head pose estimation keypoint smoothing, default is 0.5')
-    parser.add_argument('--ear_thresh', type=float, default=0.15,
+    parser.add_argument('--ear_thresh', type=float, default=0.25,
                         metavar='', help='Sets the EAR threshold for the Attention Scorer, default is 0.15')
     parser.add_argument('--ear_time_thresh', type=float, default=2,
                         metavar='', help='Sets the EAR time (seconds) threshold for the Attention Scorer, default is 2 seconds')
@@ -137,45 +159,8 @@ def main():
 
     i = 0
     time.sleep(0.01) # To prevent zero division error when calculating the FPS
-    
-    roll_offset = 0
-    pitch_offset = 0
-    yaw_offset = 0
 
     userPinched = False
-
-    # Visualization parameters for pinch detection
-    row_size = 50  # pixels
-    left_margin = 24  # pixels
-    text_color = (0, 0, 0)  # black
-    font_size = 1
-    font_thickness = 1
-    fps_avg_frame_count = 10
-
-    def save_result(result: vision.HandLandmarkerResult,
-                    unused_output_image: mp.Image, timestamp_ms: int):
-        global FPS, COUNTER, START_TIME, DETECTION_RESULT
-
-        # Calculate the FPS
-        if COUNTER % fps_avg_frame_count == 0:
-            FPS = fps_avg_frame_count / (time.time() - START_TIME)
-            START_TIME = time.time()
-
-        DETECTION_RESULT = result
-        COUNTER += 1
-
-     # Initialize the hand landmarker model
-    base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
-    options = vision.HandLandmarkerOptions(
-        base_options=base_options,
-        running_mode=vision.RunningMode.LIVE_STREAM,
-        num_hands=1,
-        min_hand_detection_confidence=0.5,
-        min_hand_presence_confidence=0.5,
-        min_tracking_confidence=0.5,
-        result_callback=save_result)
-    detector = vision.HandLandmarker.create_from_options(options)
-
 
     while True:  # infinite loop for calibrating
         e1 = cv2.getTickCount()
@@ -203,19 +188,8 @@ def main():
         # Run hand landmarker using the model.
         detector.detect_async(mp_image, time.time_ns() // 1_000_000)
 
-        # Show the FPS
-        fps_text = 'FPS = {:.1f}'.format(FPS)
-        text_location = (left_margin, row_size)
-        current_frame = frame
-        cv2.putText(current_frame, fps_text, text_location,
-                    cv2.FONT_HERSHEY_DUPLEX,
-                    font_size, text_color, font_thickness, cv2.LINE_AA)
 
-        # Landmark visualization parameters.
-        MARGIN = 10  # pixels
-        FONT_SIZE = 1
-        FONT_THICKNESS = 1
-        HANDEDNESS_TEXT_COLOR = (88, 205, 54)  # vibrant green
+        current_frame = frame
 
         if DETECTION_RESULT:
             # Draw landmarks and indicate handedness.
@@ -252,18 +226,17 @@ def main():
                     cv2.putText(current_frame, "Pinch Detected", (10, 50), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
                     userPinched = True
                     runFaceDetection(current_frame)
-            
-                    
                         # stop the tick counter for computing the processing time for each frame
-                e2 = cv2.getTickCount()
-                # processing time in milliseconds
-                proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
-                cv2.putText(current_frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
-                        (255, 0, 255), 1)
+        e2 = cv2.getTickCount()
+                    # processing time in milliseconds
+        proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
+        cv2.putText(current_frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
+                            (255, 0, 255), 1)
 
         ########################################################################################
 
         def runFaceDetection(current_frame):
+            global roll_offset, pitch_offset, yaw_offset
         # # start the tick counter for computing the processing time for each frame
             e1 = cv2.getTickCount()
 
@@ -288,23 +261,14 @@ def main():
                 Eye_det.show_eye_keypoints(
                     color_frame=current_frame, landmarks=landmarks, frame_size=curr_frame_size)
 
-                # compute the EAR score of the eyes
-                ear = Eye_det.get_EAR(frame=gray, landmarks=landmarks)
-
-                # compute the PERCLOS score and state of tiredness
-                tired, perclos_score = Scorer.get_PERCLOS(t_now, fps, ear)
-
-                # compute the Gaze Score
-                gaze = Eye_det.get_Gaze_Score(
-                    frame=gray, landmarks=landmarks, frame_size=curr_frame_size)
 
                 # compute the head pose
                 frame_det, roll, pitch, yaw = Head_pose.get_pose(
                     frame=current_frame, landmarks=landmarks, frame_size=curr_frame_size)
             
-                roll_offset = abs(roll)
-                pitch_offset = abs(pitch)
-                yaw_offset = abs(yaw)
+                roll_offset = roll
+                pitch_offset = pitch
+                yaw_offset = yaw
 
         # # show the frame on screen
         cv2.imshow("Calibrating", frame)
@@ -314,12 +278,8 @@ def main():
         i += 1
         
     cv2.destroyAllWindows()
-    
-    
-    
 
     ## MAIN SCRIPT - POST CALIBRATION
-    
     
     while True:  # infinite loop for webcam video capture
         t_now = time.perf_counter()
@@ -375,13 +335,17 @@ def main():
             frame_det, roll, pitch, yaw = Head_pose.get_pose(
                 frame=frame, landmarks=landmarks, frame_size=frame_size)
             
+            roll -= roll_offset
+            pitch -= pitch_offset
+            yaw -= yaw_offset
+            
              # evaluate the scores for EAR, GAZE and HEAD POSE
             asleep, looking_away, distracted = Scorer.eval_scores(t_now=t_now,
                                                                   ear_score=ear,
                                                                   gaze_score=gaze,
-                                                                  head_roll=roll-roll_offset,
-                                                                  head_pitch=pitch+pitch_offset,
-                                                                  head_yaw=yaw+yaw_offset)
+                                                                  head_roll=roll,
+                                                                  head_pitch=pitch,
+                                                                  head_yaw=yaw)
 
             # if the head pose estimation is successful, show the results
             if frame_det is not None:
