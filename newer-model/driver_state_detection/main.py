@@ -1,5 +1,6 @@
 import time
 import argparse
+import sys
 
 import cv2
 import numpy as np
@@ -9,8 +10,23 @@ from Eye_Dector_Module import EyeDetector as EyeDet
 from Pose_Estimation_Module import HeadPoseEstimator as HeadPoseEst
 from Attention_Scorer_Module import AttentionScorer as AttScorer
 
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+from mediapipe.framework.formats import landmark_pb2
+
 probability_minimum = 0.5
 threshold = 0.3
+
+# For Pinch Detection (Calibration)
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+mp_drawing_styles = mp.solutions.drawing_styles
+
+# Global variables to calculate FPS
+COUNTER, FPS = 0, 0
+START_TIME = time.time()
+DETECTION_RESULT = None
+
 
 # camera matrix obtained from the camera calibration script, using a 9x6 chessboard
 camera_matrix = np.array(
@@ -94,7 +110,7 @@ def main():
                 "OpenCV optimization could not be set to True, the script may be slower than expected")
             
 
-    detector = mp.solutions.face_mesh.FaceMesh(static_image_mode=False,
+    detector_face = mp.solutions.face_mesh.FaceMesh(static_image_mode=False,
                                                min_detection_confidence=0.5,
                                                min_tracking_confidence=0.5,
                                                refine_landmarks=True, max_num_faces=1 )
@@ -126,7 +142,43 @@ def main():
     pitch_offset = 0
     yaw_offset = 0
 
+    userPinched = False
+
+    # Visualization parameters for pinch detection
+    row_size = 50  # pixels
+    left_margin = 24  # pixels
+    text_color = (0, 0, 0)  # black
+    font_size = 1
+    font_thickness = 1
+    fps_avg_frame_count = 10
+
+    def save_result(result: vision.HandLandmarkerResult,
+                    unused_output_image: mp.Image, timestamp_ms: int):
+        global FPS, COUNTER, START_TIME, DETECTION_RESULT
+
+        # Calculate the FPS
+        if COUNTER % fps_avg_frame_count == 0:
+            FPS = fps_avg_frame_count / (time.time() - START_TIME)
+            START_TIME = time.time()
+
+        DETECTION_RESULT = result
+        COUNTER += 1
+
+     # Initialize the hand landmarker model
+    base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
+    options = vision.HandLandmarkerOptions(
+        base_options=base_options,
+        running_mode=vision.RunningMode.LIVE_STREAM,
+        num_hands=1,
+        min_hand_detection_confidence=0.5,
+        min_hand_presence_confidence=0.5,
+        min_tracking_confidence=0.5,
+        result_callback=save_result)
+    detector = vision.HandLandmarker.create_from_options(options)
+
+
     while True:  # infinite loop for calibrating
+        e1 = cv2.getTickCount()
         t_now = time.perf_counter()
         fps = i / (t_now - t0)
         if fps == 0:
@@ -142,80 +194,121 @@ def main():
         if args.camera == 0:
             frame = cv2.flip(frame, 2)
 
-        # start the tick counter for computing the processing time for each frame
-        e1 = cv2.getTickCount()
+        ## FOR PINCH DETECTION: #####################################################################################
 
-        # transform the BGR frame in grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # Convert the image from BGR to RGB as required by the TFLite model.
+        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
 
-        # get the frame size
-        frame_size = frame.shape[1], frame.shape[0]
+        # Run hand landmarker using the model.
+        detector.detect_async(mp_image, time.time_ns() // 1_000_000)
 
-        # apply a bilateral filter to lower noise but keep frame details. create a 3D matrix from gray image to give it to the model
-        gray = np.expand_dims(cv2.bilateralFilter(gray, 5, 10, 10), axis=2)
-        gray = np.concatenate([gray, gray, gray], axis=2)
+        # Show the FPS
+        fps_text = 'FPS = {:.1f}'.format(FPS)
+        text_location = (left_margin, row_size)
+        current_frame = frame
+        cv2.putText(current_frame, fps_text, text_location,
+                    cv2.FONT_HERSHEY_DUPLEX,
+                    font_size, text_color, font_thickness, cv2.LINE_AA)
 
-        # find the faces using the face mesh model
-        lms = detector.process(gray).multi_face_landmarks
+        # Landmark visualization parameters.
+        MARGIN = 10  # pixels
+        FONT_SIZE = 1
+        FONT_THICKNESS = 1
+        HANDEDNESS_TEXT_COLOR = (88, 205, 54)  # vibrant green
 
-        if lms:  # process the frame only if at least a face is found
-            # getting face landmarks and then take only the bounding box of the biggest face
-            landmarks = _get_landmarks(lms)
+        if DETECTION_RESULT:
+            # Draw landmarks and indicate handedness.
+            for idx in range(len(DETECTION_RESULT.hand_landmarks)):
+                hand_landmarks = DETECTION_RESULT.hand_landmarks[idx]
+                handedness = DETECTION_RESULT.handedness[idx]
 
-            # shows the eye keypoints (can be commented)
-            Eye_det.show_eye_keypoints(
-                color_frame=frame, landmarks=landmarks, frame_size=frame_size)
+                # Draw the hand landmarks.
+                hand_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+                hand_landmarks_proto.landmark.extend([
+                    landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y,
+                                                    z=landmark.z) for landmark
+                    in hand_landmarks
+                ])
+                mp_drawing.draw_landmarks(
+                    current_frame,
+                    hand_landmarks_proto,
+                    mp_hands.HAND_CONNECTIONS,
+                    mp_drawing_styles.get_default_hand_landmarks_style(),
+                    mp_drawing_styles.get_default_hand_connections_style())
+                
+                # Get landmarks for thumb and pointer finger
+                thumb_tip = hand_landmarks_proto.landmark[4]
+                index_tip = hand_landmarks_proto.landmark[8]
 
-            # compute the EAR score of the eyes
-            ear = Eye_det.get_EAR(frame=gray, landmarks=landmarks)
+                # Calculate distance between thumb and pointer finger landmarks
+                distance = ((thumb_tip.x - index_tip.x)**2 + (thumb_tip.y - index_tip.y)**2)**0.5
 
-            # compute the PERCLOS score and state of tiredness
-            tired, perclos_score = Scorer.get_PERCLOS(t_now, fps, ear)
+                # Set a threshold for pinch detection
+                pinch_threshold = 0.05
 
-            # compute the Gaze Score
-            gaze = Eye_det.get_Gaze_Score(
-                frame=gray, landmarks=landmarks, frame_size=frame_size)
-
-            # compute the head pose
-            frame_det, roll, pitch, yaw = Head_pose.get_pose(
-                frame=frame, landmarks=landmarks, frame_size=frame_size)
+                # If the distance is below the threshold, consider it as a pinch
+                if distance < pinch_threshold:
+                    cv2.putText(current_frame, "Pinch Detected", (10, 50), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+                    userPinched = True
+                    runFaceDetection(current_frame)
             
-            if abs(roll) >0 and abs(roll) < 7 and abs(pitch) > 5 and abs(pitch)< 12 and abs(yaw) >30 and abs(yaw) < 45:
+                    
+                        # stop the tick counter for computing the processing time for each frame
+                e2 = cv2.getTickCount()
+                # processing time in milliseconds
+                proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
+                cv2.putText(current_frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
+                        (255, 0, 255), 1)
+
+        ########################################################################################
+
+        def runFaceDetection(current_frame):
+        # # start the tick counter for computing the processing time for each frame
+            e1 = cv2.getTickCount()
+
+            # transform the BGR frame in grayscale
+            gray = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+
+            # get the frame size
+            curr_frame_size = current_frame.shape[1], current_frame.shape[0]
+
+            # apply a bilateral filter to lower noise but keep frame details. create a 3D matrix from gray image to give it to the model
+            gray = np.expand_dims(cv2.bilateralFilter(gray, 5, 10, 10), axis=2)
+            gray = np.concatenate([gray, gray, gray], axis=2)
+
+            # find the faces using the face mesh model
+            lms = detector_face.process(gray).multi_face_landmarks
+
+            if lms:  # process the frame only if at least a face is found
+                # getting face landmarks and then take only the bounding box of the biggest face
+                landmarks = _get_landmarks(lms)
+
+                # shows the eye keypoints (can be commented)
+                Eye_det.show_eye_keypoints(
+                    color_frame=current_frame, landmarks=landmarks, frame_size=curr_frame_size)
+
+                # compute the EAR score of the eyes
+                ear = Eye_det.get_EAR(frame=gray, landmarks=landmarks)
+
+                # compute the PERCLOS score and state of tiredness
+                tired, perclos_score = Scorer.get_PERCLOS(t_now, fps, ear)
+
+                # compute the Gaze Score
+                gaze = Eye_det.get_Gaze_Score(
+                    frame=gray, landmarks=landmarks, frame_size=curr_frame_size)
+
+                # compute the head pose
+                frame_det, roll, pitch, yaw = Head_pose.get_pose(
+                    frame=current_frame, landmarks=landmarks, frame_size=curr_frame_size)
+            
                 roll_offset = abs(roll)
                 pitch_offset = abs(pitch)
                 yaw_offset = abs(yaw)
-                break
-            
-             # evaluate the scores for EAR, GAZE and HEAD POSE
-            asleep, looking_away, distracted = Scorer.eval_scores(t_now=t_now,
-                                                                  ear_score=ear,
-                                                                  gaze_score=gaze,
-                                                                  head_roll=roll,
-                                                                  head_pitch=pitch,
-                                                                  head_yaw=yaw)
 
-            # if the head pose estimation is successful, show the results
-            if frame_det is not None:
-                frame = frame_det
-
-
-        # stop the tick counter for computing the processing time for each frame
-        e2 = cv2.getTickCount()
-        # processign time in milliseconds
-        proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
-        # print fps and processing time per frame on screen
-        if args.show_fps:
-            cv2.putText(frame, "FPS:" + str(round(fps)), (10, 400), cv2.FONT_HERSHEY_PLAIN, 2,
-                        (255, 0, 255), 1)
-        if args.show_proc_time:
-            cv2.putText(frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
-                        (255, 0, 255), 1)
-
-        # show the frame on screen
+        # # show the frame on screen
         cv2.imshow("Calibrating", frame)
-
-        # if the key "q" is pressed on the keyboard, the program is terminated
-        if cv2.waitKey(20) & 0xFF == ord('q'):
+        if userPinched or cv2.waitKey(20) & 0xFF == ord('q'):
             break
         
         i += 1
@@ -224,6 +317,8 @@ def main():
     
     
     
+
+    ## MAIN SCRIPT - POST CALIBRATION
     
     
     while True:  # infinite loop for webcam video capture
@@ -256,7 +351,7 @@ def main():
         gray = np.concatenate([gray, gray, gray], axis=2)
 
         # find the faces using the face mesh model
-        lms = detector.process(gray).multi_face_landmarks
+        lms = detector_face.process(gray).multi_face_landmarks
 
         if lms:  # process the frame only if at least a face is found
             # getting face landmarks and then take only the bounding box of the biggest face
