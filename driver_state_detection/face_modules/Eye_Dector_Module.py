@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from numpy import linalg as LA
-from Utils import resize
+from face_modules.Utils import resize
 
 
 EYES_LMS_NUMS = [33, 133, 160, 144, 158, 153, 362, 263, 385, 380, 387, 373]

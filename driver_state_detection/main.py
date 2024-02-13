@@ -7,9 +7,9 @@ import numpy as np
 import mediapipe as mp
 import os
 
-from Eye_Dector_Module import EyeDetector as EyeDet
-from Pose_Estimation_Module import HeadPoseEstimator as HeadPoseEst
-from Attention_Scorer_Module import AttentionScorer as AttScorer
+from face_modules.Eye_Dector_Module import EyeDetector as EyeDet
+from face_modules.Pose_Estimation_Module import HeadPoseEstimator as HeadPoseEst
+from face_modules.Attention_Scorer_Module import AttentionScorer as AttScorer
 
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -68,7 +68,8 @@ def main():
     # Get the absolute path to the directory containing the script
     script_dir = os.path.dirname(os.path.abspath(__file__))
     # Construct the absolute path to the model asset relative to the script directory
-    model_asset_path = os.path.join(script_dir, 'hand_landmarker.task')
+    model_asset_path = os.path.join(script_dir, 'hand_modules')
+    model_asset_path = os.path.join(model_asset_path, 'hand_landmarker.task')
     base_options = python.BaseOptions(model_asset_path=model_asset_path)
     options = vision.HandLandmarkerOptions(
         base_options=base_options,

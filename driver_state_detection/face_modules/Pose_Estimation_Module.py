@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 
-from face_geometry import *
-from Utils import rotationMatrixToEulerAngles, draw_pose_info
+from face_modules.face_geometry import *
+from face_modules.Utils import rotationMatrixToEulerAngles, draw_pose_info
 
 
 JAW_LMS_NUMS = [61, 291, 199]
