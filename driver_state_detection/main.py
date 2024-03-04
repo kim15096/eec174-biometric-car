@@ -5,6 +5,7 @@ import sys
 import cv2
 import numpy as np
 import mediapipe as mp
+import vlc
 import os
 
 from face_modules.Eye_Dector_Module import EyeDetector as EyeDet
@@ -395,6 +396,9 @@ def main():
             if asleep:
                 cv2.putText(frame, "ASLEEP!", (10, 300),
                             cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+                p = vlc.MediaPlayer("./assets/warning_wake_up.mp3")
+                p.play()
+                
             if looking_away:
                 cv2.putText(frame, "LOOKING AWAY!", (10, 320),
                             cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)

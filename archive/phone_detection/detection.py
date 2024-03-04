@@ -12,7 +12,6 @@ weights = "tiny_best.pt"
 video_path = ""
 cap = cv2.VideoCapture(0)
 device = 0 #If you want to run with cpu -> device = "cpu"
-device = select_device(str(device))
 model = attempt_load(weights, map_location=device)
 
 imgsz = 640
@@ -26,7 +25,7 @@ if half:
 
 names = model.names
 colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
-
+git pull
 if device != 'cpu':
     model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once for warmup
 
