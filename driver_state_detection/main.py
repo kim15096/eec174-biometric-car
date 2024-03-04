@@ -164,6 +164,7 @@ def main():
     userPinched = False
 
     while True:  # infinite loop for calibrating
+    
         e1 = cv2.getTickCount()
         t_now = time.perf_counter()
         fps = i / (t_now - t0)
@@ -171,17 +172,26 @@ def main():
             fps = 10
 
         ret, frame = cap.read()  # read a frame from the webcam
+        
+     
+        
 
         if not ret:  # if a frame can't be read, exit the program
             print("Can't receive frame from camera/stream end")
             break
-
+        
+        width  = cap.get(3)  
+        height = cap.get(4)
+        
          # if the frame comes from webcam, flip it so it looks like a mirror.
         if args.camera == 0:
             frame = cv2.flip(frame, 2)
 
         ## FOR PINCH DETECTION: #####################################################################################
 
+        cv2.putText(frame, "CALIBRATING... PLEASE FACE FORWARD AND PINCH TO CALIBRATE", (30, 60), cv2.FONT_HERSHEY_PLAIN, 3,
+                            (255, 0, 0), 2)
+        
         # Convert the image from BGR to RGB as required by the TFLite model.
         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
@@ -220,7 +230,7 @@ def main():
                 distance = ((thumb_tip.x - index_tip.x)**2 + (thumb_tip.y - index_tip.y)**2)**0.5
 
                 # Set a threshold for pinch detection
-                pinch_threshold = 0.05
+                pinch_threshold = 0.02
 
                 # If the distance is below the threshold, consider it as a pinch
                 if distance < pinch_threshold:
