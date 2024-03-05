@@ -25,7 +25,7 @@ if half:
 
 names = model.names
 colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
-git pull
+
 if device != 'cpu':
     model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once for warmup
 

@@ -5,8 +5,10 @@ import sys
 import cv2
 import numpy as np
 import mediapipe as mp
-import vlc
 import os
+import pygame
+import random
+import threading
 
 from face_modules.Eye_Dector_Module import EyeDetector as EyeDet
 from face_modules.Pose_Estimation_Module import HeadPoseEstimator as HeadPoseEst
@@ -30,7 +32,24 @@ DETECTION_RESULT = None
 roll_offset = 0
 pitch_offset = 0
 yaw_offset = 0
+exit_thread = False
+asleep = False
 
+def play_sound():
+    while True:
+        if exit_thread:
+            break
+        sound_file = 'driver_state_detection/assets/warning_wake_up.mp3'            
+
+        if asleep:
+            print("PLAYING WAKE UP SOUND", random.randint(1, 10))
+            pygame.mixer.init()
+            pygame.mixer.music.load(sound_file)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(10)
+        
+        time.sleep(0.1)
 
 def save_result(result: vision.HandLandmarkerResult,
                     unused_output_image: mp.Image, timestamp_ms: int):
@@ -64,94 +83,93 @@ def _get_landmarks(lms):
 
 
 def main():
-    
-    # Initialize the hand landmarker model
-    # Get the absolute path to the directory containing the script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Construct the absolute path to the model asset relative to the script directory
-    model_asset_path = os.path.join(script_dir, 'hand_modules')
-    model_asset_path = os.path.join(model_asset_path, 'hand_landmarker.task')
-    base_options = python.BaseOptions(model_asset_path=model_asset_path)
-    options = vision.HandLandmarkerOptions(
-        base_options=base_options,
-        running_mode=vision.RunningMode.LIVE_STREAM,
-        num_hands=1,
-        min_hand_detection_confidence=0.5,
-        min_hand_presence_confidence=0.5,
-        min_tracking_confidence=0.5,
-        result_callback=save_result)
-    detector = vision.HandLandmarker.create_from_options(options)
+    # Setup code (hide set up code)
+    if True:
+        # Initialize the hand landmarker model
+        # Get the absolute path to the directory containing the script
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        # Construct the absolute path to the model asset relative to the script directory
+        model_asset_path = os.path.join(script_dir, 'hand_modules')
+        model_asset_path = os.path.join(model_asset_path, 'hand_landmarker.task')
+        base_options = python.BaseOptions(model_asset_path=model_asset_path)
+        options = vision.HandLandmarkerOptions(
+            base_options=base_options,
+            running_mode=vision.RunningMode.LIVE_STREAM,
+            num_hands=1,
+            min_hand_detection_confidence=0.5,
+            min_hand_presence_confidence=0.5,
+            min_tracking_confidence=0.5,
+            result_callback=save_result)
+        detector = vision.HandLandmarker.create_from_options(options)
 
-    parser = argparse.ArgumentParser(description='Driver State Detection')
+        parser = argparse.ArgumentParser(description='Driver State Detection')
 
-    # selection the camera number, default is 0 (webcam)
-    parser.add_argument('-c', '--camera', type=int,
-                        default=0, metavar='', help='Camera number, default is 0 (webcam)')
+        # selection the camera number, default is 0 (webcam)
+        parser.add_argument('-c', '--camera', type=int,
+                            default=0, metavar='', help='Camera number, default is 0 (webcam)')
 
-    # visualisation parameters
-    parser.add_argument('--show_fps', type=bool, default=True,
-                        metavar='', help='Show the actual FPS of the capture stream, default is true')
-    parser.add_argument('--show_proc_time', type=bool, default=True,
-                        metavar='', help='Show the processing time for a single frame, default is true')
-    parser.add_argument('--show_eye_proc', type=bool, default=False,
-                        metavar='', help='Show the eyes processing, deafult is false')
-    parser.add_argument('--show_axis', type=bool, default=True,
-                        metavar='', help='Show the head pose axis, default is true')
-    parser.add_argument('--verbose', type=bool, default=False,
-                        metavar='', help='Prints additional info, default is false')
+        # visualisation parameters
+        parser.add_argument('--show_proc_time', type=bool, default=True,
+                            metavar='', help='Show the processing time for a single frame, default is true')
+        parser.add_argument('--show_eye_proc', type=bool, default=False,
+                            metavar='', help='Show the eyes processing, deafult is false')
+        parser.add_argument('--show_axis', type=bool, default=True,
+                            metavar='', help='Show the head pose axis, default is true')
+        parser.add_argument('--verbose', type=bool, default=False,
+                            metavar='', help='Prints additional info, default is false')
 
-    # Attention Scorer parameters (EAR, Gaze Score, Pose)
-    parser.add_argument('--smooth_factor', type=float, default=0.5,
-                        metavar='', help='Sets the smooth factor for the head pose estimation keypoint smoothing, default is 0.5')
-    parser.add_argument('--ear_thresh', type=float, default=0.25,
-                        metavar='', help='Sets the EAR threshold for the Attention Scorer, default is 0.15')
-    parser.add_argument('--ear_time_thresh', type=float, default=2,
-                        metavar='', help='Sets the EAR time (seconds) threshold for the Attention Scorer, default is 2 seconds')
-    parser.add_argument('--gaze_thresh', type=float, default=0.015,
-                        metavar='', help='Sets the Gaze Score threshold for the Attention Scorer, default is 0.2')
-    parser.add_argument('--gaze_time_thresh', type=float, default=2, metavar='',
-                        help='Sets the Gaze Score time (seconds) threshold for the Attention Scorer, default is 2. seconds')
-    parser.add_argument('--pitch_thresh', type=float, default=20,
-                        metavar='', help='Sets the PITCH threshold (degrees) for the Attention Scorer, default is 30 degrees')
-    parser.add_argument('--yaw_thresh', type=float, default=20,
-                        metavar='', help='Sets the YAW threshold (degrees) for the Attention Scorer, default is 20 degrees')
-    parser.add_argument('--roll_thresh', type=float, default=20,
-                        metavar='', help='Sets the ROLL threshold (degrees) for the Attention Scorer, default is 30 degrees')
-    parser.add_argument('--pose_time_thresh', type=float, default=2.5,
-                        metavar='', help='Sets the Pose time threshold (seconds) for the Attention Scorer, default is 2.5 seconds')
+        # Attention Scorer parameters (EAR, Gaze Score, Pose)
+        parser.add_argument('--smooth_factor', type=float, default=0.5,
+                            metavar='', help='Sets the smooth factor for the head pose estimation keypoint smoothing, default is 0.5')
+        parser.add_argument('--ear_thresh', type=float, default=0.25,
+                            metavar='', help='Sets the EAR threshold for the Attention Scorer, default is 0.15')
+        parser.add_argument('--ear_time_thresh', type=float, default=2,
+                            metavar='', help='Sets the EAR time (seconds) threshold for the Attention Scorer, default is 2 seconds')
+        parser.add_argument('--gaze_thresh', type=float, default=0.015,
+                            metavar='', help='Sets the Gaze Score threshold for the Attention Scorer, default is 0.2')
+        parser.add_argument('--gaze_time_thresh', type=float, default=2, metavar='',
+                            help='Sets the Gaze Score time (seconds) threshold for the Attention Scorer, default is 2. seconds')
+        parser.add_argument('--pitch_thresh', type=float, default=20,
+                            metavar='', help='Sets the PITCH threshold (degrees) for the Attention Scorer, default is 30 degrees')
+        parser.add_argument('--yaw_thresh', type=float, default=20,
+                            metavar='', help='Sets the YAW threshold (degrees) for the Attention Scorer, default is 20 degrees')
+        parser.add_argument('--roll_thresh', type=float, default=20,
+                            metavar='', help='Sets the ROLL threshold (degrees) for the Attention Scorer, default is 30 degrees')
+        parser.add_argument('--pose_time_thresh', type=float, default=2.5,
+                            metavar='', help='Sets the Pose time threshold (seconds) for the Attention Scorer, default is 2.5 seconds')
 
-    # parse the arguments and store them in the args variable dictionary
-    args = parser.parse_args()
+        # parse the arguments and store them in the args variable dictionary
+        args = parser.parse_args()
 
-    if args.verbose:
-        print(f"Arguments and Parameters used:\n{args}\n")
+        if args.verbose:
+            print(f"Arguments and Parameters used:\n{args}\n")
 
-    if not cv2.useOptimized():
-        try:
-            cv2.setUseOptimized(True)  # set OpenCV optimization to True
-        except:
-            print(
-                "OpenCV optimization could not be set to True, the script may be slower than expected")
-            
+        if not cv2.useOptimized():
+            try:
+                cv2.setUseOptimized(True)  # set OpenCV optimization to True
+            except:
+                print(
+                    "OpenCV optimization could not be set to True, the script may be slower than expected")
+                
 
-    detector_face = mp.solutions.face_mesh.FaceMesh(static_image_mode=False,
-                                               min_detection_confidence=0.5,
-                                               min_tracking_confidence=0.5,
-                                               refine_landmarks=True, max_num_faces=1 )
+        detector_face = mp.solutions.face_mesh.FaceMesh(static_image_mode=False,
+                                                min_detection_confidence=0.5,
+                                                min_tracking_confidence=0.5,
+                                                refine_landmarks=True, max_num_faces=1 )
 
-    # instantiation of the eye detector and pose estimator objects
-    Eye_det = EyeDet(show_processing=args.show_eye_proc)
+        # instantiation of the eye detector and pose estimator objects
+        Eye_det = EyeDet(show_processing=args.show_eye_proc)
 
-    Head_pose = HeadPoseEst(show_axis=args.show_axis)
+        Head_pose = HeadPoseEst(show_axis=args.show_axis)
 
-    # instantiation of the attention scorer object, with the various thresholds
-    # NOTE: set verbose to True for additional printed information about the scores
-    t0 = time.perf_counter()
-    Scorer = AttScorer(t_now=t0, ear_thresh=args.ear_thresh, gaze_time_thresh=args.gaze_time_thresh,
-                       roll_thresh=args.roll_thresh, pitch_thresh=args.pitch_thresh,
-                       yaw_thresh=args.yaw_thresh, ear_time_thresh=args.ear_time_thresh,
-                       gaze_thresh=args.gaze_thresh, pose_time_thresh=args.pose_time_thresh,
-                       verbose=args.verbose)
+        # instantiation of the attention scorer object, with the various thresholds
+        # NOTE: set verbose to True for additional printed information about the scores
+        t0 = time.perf_counter()
+        Scorer = AttScorer(t_now=t0, ear_thresh=args.ear_thresh, gaze_time_thresh=args.gaze_time_thresh,
+                        roll_thresh=args.roll_thresh, pitch_thresh=args.pitch_thresh,
+                        yaw_thresh=args.yaw_thresh, ear_time_thresh=args.ear_time_thresh,
+                        gaze_thresh=args.gaze_thresh, pose_time_thresh=args.pose_time_thresh,
+                        verbose=args.verbose)
 
     # capture the input from the default system camera (camera number 0)
     cap = cv2.VideoCapture(args.camera)
@@ -160,23 +178,16 @@ def main():
         exit()
 
     i = 0
-    time.sleep(0.01) # To prevent zero division error when calculating the FPS
-
+    
     userPinched = False
 
     while True:  # infinite loop for calibrating
     
         e1 = cv2.getTickCount()
         t_now = time.perf_counter()
-        fps = i / (t_now - t0)
-        if fps == 0:
-            fps = 10
 
         ret, frame = cap.read()  # read a frame from the webcam
         
-     
-        
-
         if not ret:  # if a frame can't be read, exit the program
             print("Can't receive frame from camera/stream end")
             break
@@ -199,7 +210,6 @@ def main():
 
         # Run hand landmarker using the model.
         detector.detect_async(mp_image, time.time_ns() // 1_000_000)
-
 
         current_frame = frame
 
@@ -231,7 +241,7 @@ def main():
                 distance = ((thumb_tip.x - index_tip.x)**2 + (thumb_tip.y - index_tip.y)**2)**0.5
 
                 # Set a threshold for pinch detection
-                pinch_threshold = 0.02
+                pinch_threshold = 0.05
 
                 # If the distance is below the threshold, consider it as a pinch
                 if distance < pinch_threshold:
@@ -292,12 +302,11 @@ def main():
     cv2.destroyAllWindows()
 
     ## MAIN SCRIPT - POST CALIBRATION
+    sound_thread = threading.Thread(target=play_sound)
+    sound_thread.start()
     
     while True:  # infinite loop for webcam video capture
         t_now = time.perf_counter()
-        fps = i / (t_now - t0)
-        if fps == 0:
-            fps = 10
 
         ret, frame = cap.read()  # read a frame from the webcam
 
@@ -336,9 +345,6 @@ def main():
             # compute the EAR score of the eyes
             ear = Eye_det.get_EAR(frame=gray, landmarks=landmarks)
 
-            # compute the PERCLOS score and state of tiredness
-            tired, perclos_score = Scorer.get_PERCLOS(t_now, fps, ear)
-
             # compute the Gaze Score
             gaze = Eye_det.get_Gaze_Score(
                 frame=gray, landmarks=landmarks, frame_size=frame_size)
@@ -352,6 +358,8 @@ def main():
             yaw -= yaw_offset
             
              # evaluate the scores for EAR, GAZE and HEAD POSE
+            global asleep
+            
             asleep, looking_away, distracted = Scorer.eval_scores(t_now=t_now,
                                                                   ear_score=ear,
                                                                   gaze_score=gaze,
@@ -372,10 +380,6 @@ def main():
             if gaze is not None:
                 cv2.putText(frame, "Gaze Score:" + str(round(gaze, 3)), (10, 80),
                             cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
-
-            # show the real-time PERCLOS score
-            cv2.putText(frame, "Fatigue Score:" + str(round(perclos_score, 3)), (10, 110),
-                        cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
             
             if roll is not None:
                 cv2.putText(frame, "roll:"+str(roll.round(1)[0]), (450, 40),
@@ -387,18 +391,12 @@ def main():
                 cv2.putText(frame, "yaw:"+str(yaw.round(1)[0]), (450, 100),
                             cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
 
-            # if the driver is tired, show and alert on screen
-            if tired:
-                cv2.putText(frame, "TIRED!", (10, 280),
-                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
-
             # if the state of attention of the driver is not normal, show an alert on screen
+                        
             if asleep:
                 cv2.putText(frame, "ASLEEP!", (10, 300),
                             cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
-                p = vlc.MediaPlayer("./assets/warning_wake_up.mp3")
-                p.play()
-                
+                         
             if looking_away:
                 cv2.putText(frame, "LOOKING AWAY!", (10, 320),
                             cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
@@ -407,7 +405,7 @@ def main():
                             cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
         
         else:
-            cv2.putText(frame, "DISTRACTED!", (10, 340),
+            cv2.putText(frame, "FACE NOT FOUND!", (10, 340),
                             cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
             
 
@@ -415,10 +413,7 @@ def main():
         e2 = cv2.getTickCount()
         # processign time in milliseconds
         proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
-        # print fps and processing time per frame on screen
-        if args.show_fps:
-            cv2.putText(frame, "FPS:" + str(round(fps)), (10, 400), cv2.FONT_HERSHEY_PLAIN, 2,
-                        (255, 0, 255), 1)
+
         if args.show_proc_time:
             cv2.putText(frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
                         (255, 0, 255), 1)
@@ -428,9 +423,14 @@ def main():
 
         # if the key "q" is pressed on the keyboard, the program is terminated
         if cv2.waitKey(20) & 0xFF == ord('q'):
+            global exit_thread
+            exit_thread = True
+            time.sleep(1)
+            sound_thread.join()
             break
         
         i += 1
+    
     
     cap.release()
     cv2.destroyAllWindows()
