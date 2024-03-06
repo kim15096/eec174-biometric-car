@@ -303,8 +303,11 @@ def main():
 
         # # show the frame on screen
         cv2.imshow("Calibrating", frame)
-        if userPinched or cv2.waitKey(20) & 0xFF == ord('q'):
+        if userPinched:
+            break
+        if cv2.waitKey(20) & 0xFF == ord('q'):
             exit(0)
+            
         
         i += 1
         
@@ -313,7 +316,8 @@ def main():
     ## MAIN SCRIPT - POST CALIBRATION
     sound_thread = threading.Thread(target=play_sound)
     sound_thread.start()
-    
+    i = 0
+
     while True:  # infinite loop for webcam video capture
         t_now = time.perf_counter()
 
