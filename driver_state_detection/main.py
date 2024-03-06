@@ -34,15 +34,24 @@ pitch_offset = 0
 yaw_offset = 0
 exit_thread = False
 asleep = False
+distracted = False
 
+# Thread to play sound in the background
 def play_sound():
     while True:
         if exit_thread:
-            break
-        sound_file = 'driver_state_detection/assets/warning_wake_up.mp3'            
+            break         
 
         if asleep:
-            print("PLAYING WAKE UP SOUND", random.randint(1, 10))
+            sound_file = 'driver_state_detection/assets/warning_wake_up.mp3'   
+            pygame.mixer.init()
+            pygame.mixer.music.load(sound_file)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(10)
+        
+        if distracted:
+            sound_file = 'driver_state_detection/assets/warning_sound.mp3'   
             pygame.mixer.init()
             pygame.mixer.music.load(sound_file)
             pygame.mixer.music.play()
@@ -295,7 +304,7 @@ def main():
         # # show the frame on screen
         cv2.imshow("Calibrating", frame)
         if userPinched or cv2.waitKey(20) & 0xFF == ord('q'):
-            break
+            exit(0)
         
         i += 1
         
@@ -357,10 +366,12 @@ def main():
             pitch -= pitch_offset
             yaw -= yaw_offset
             
-             # evaluate the scores for EAR, GAZE and HEAD POSE
-            global asleep
             
-            asleep, looking_away, distracted = Scorer.eval_scores(t_now=t_now,
+            # evaluate the scores for EAR, GAZE and HEAD POSE
+            
+            global asleep
+            global distracted
+            asleep, distracted = Scorer.eval_scores(t_now=t_now,
                                                                   ear_score=ear,
                                                                   gaze_score=gaze,
                                                                   head_roll=roll,
@@ -395,14 +406,10 @@ def main():
                         
             if asleep:
                 cv2.putText(frame, "ASLEEP!", (10, 300),
-                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
-                         
-            if looking_away:
-                cv2.putText(frame, "LOOKING AWAY!", (10, 320),
-                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+                            cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 1, cv2.LINE_AA)
             if distracted:
                 cv2.putText(frame, "DISTRACTED!", (10, 340),
-                            cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
+                            cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 1, cv2.LINE_AA)
         
         else:
             cv2.putText(frame, "FACE NOT FOUND!", (10, 340),
