@@ -10,25 +10,9 @@ RIGHT_IRIS_NUM = 473
 
 class EyeDetector:
 
-    def __init__(self, show_processing: bool = False):
-        """
-        Eye dector class that contains various method for eye aperture rate estimation and gaze score estimation
-
-        Parameters
-        ----------
-        show_processing: bool
-            If set to True, shows frame images during the processing in some steps (default is False)
-
-        Methods
-        ----------
-        - show_eye_keypoints: shows eye keypoints in the frame/image
-        - get_EAR: computes EAR average score for the two eyes of the face
-        - get_Gaze_Score: computes the Gaze_Score (normalized euclidean distance between center of eye and pupil)
-            of the eyes of the face
-        """
-
-        self.show_processing = show_processing
-
+    def __init__(self):
+        pass
+    
     @staticmethod
     def _calc_EAR_eye(eye_pts):
         """
@@ -157,15 +141,7 @@ class EyeDetector:
         right_gaze_score, right_eye = self._calc_1eye_score(
             landmarks, EYES_LMS_NUMS[6:], RIGHT_IRIS_NUM, frame_size, frame)
 
-        # if show_processing is True, shows the eyes ROI, eye center, pupil center and line distance
-
         # computes the average gaze score for the 2 eyes
         avg_gaze_score = (left_gaze_score + right_gaze_score) / 2
 
-        if self.show_processing and (left_eye is not None) and (right_eye is not None):
-            left_eye = resize(left_eye, 1000)
-            right_eye = resize(right_eye, 1000)
-            cv2.imshow("left eye", left_eye)
-            cv2.imshow("right eye", right_eye)
-        
         return avg_gaze_score
