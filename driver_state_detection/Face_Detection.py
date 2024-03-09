@@ -51,7 +51,7 @@ class Face_Detection_Class():
         landmarks[landmarks[:, 0] > 1., 0] = 1.
         landmarks[landmarks[:, 1] < 0., 1] = 0.
         landmarks[landmarks[:, 1] > 1., 1] = 1.
-
+        
         return landmarks
     
     def run_detecton_calib(self, frame):
@@ -109,14 +109,14 @@ class Face_Detection_Class():
         # shows the eye keypoints (can be commented)
         Eye_det.show_eye_keypoints(
             color_frame=frame, landmarks=landmarks, frame_size=frame_size)
-
+        
         # compute the EAR score of the eyes
         ear = Eye_det.get_EAR(frame=gray_frame, landmarks=landmarks)
-
+        
         # compute the Gaze Score
         gaze = Eye_det.get_Gaze_Score(
             frame=gray_frame, landmarks=landmarks, frame_size=frame_size)
-
+        
         # compute the head pose
         frame_det, roll, pitch, yaw = Head_pose.get_pose(
             frame=frame, landmarks=landmarks, frame_size=frame_size)
