@@ -1,2 +1,3 @@
 env
 face_detector/data
+*.pyc
