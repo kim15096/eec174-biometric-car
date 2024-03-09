@@ -29,6 +29,7 @@ def main():
             
     # Capture Video Input 
     cap = cv2.VideoCapture(0)
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
     
     if not cap.isOpened(): 
         print("Cannot open camera")

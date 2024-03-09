@@ -7,7 +7,7 @@ from face_modules.Pose_Estimation_Module import HeadPoseEstimator as HeadPoseEst
 from face_modules.Attention_Scorer_Module import AttentionScorer as AttScorer
 
 # instantiation of the eye detector and pose estimator objects
-Eye_det = EyeDet(show_processing=False)
+Eye_det = EyeDet()
 Head_pose = HeadPoseEst(show_axis=True)
 
 # Attention Scorer Parameters
