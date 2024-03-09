@@ -5,7 +5,7 @@ class AttentionScorer:
 
     def __init__(self, t_now, ear_thresh, gaze_thresh, perclos_thresh=0.2, roll_thresh=60,
                  pitch_thresh=20, yaw_thresh=30, ear_time_thresh=4.0, gaze_time_thresh=2.,
-                 pose_time_thresh=4.0, verbose=False):
+                 pose_time_thresh=4.0):
         """
         Attention Scorer class that contains methods for estimating EAR, Gaze_Score, PERCLOS and Head Pose over time,
         with the given thresholds (time thresholds and value thresholds)
@@ -55,7 +55,6 @@ class AttentionScorer:
         self.ear_time_thresh = ear_time_thresh
         self.gaze_time_thresh = gaze_time_thresh
         self.pose_time_thresh = pose_time_thresh
-        self.verbose = verbose
 
         self.perclos_time_period = 60
         
