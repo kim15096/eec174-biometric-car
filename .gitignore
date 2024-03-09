@@ -1,3 +1,4 @@
 env
 face_detector/data
 *.pyc
+__pycache__

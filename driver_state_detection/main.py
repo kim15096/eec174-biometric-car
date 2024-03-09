@@ -1,6 +1,5 @@
 import time
 import cv2
-import numpy as np
 import pygame
 import threading
 import Face_Detection
@@ -117,9 +116,11 @@ def main():
     sound_thread.start()
     
     i = 0
+    proc_time_total = 0
 
     while True:
         t_now = time.perf_counter()
+        e1 = cv2.getTickCount()
 
         ret, frame = cap.read()  # read a frame from the webcam
 
@@ -130,60 +131,29 @@ def main():
         # if the frame comes from webcam, flip it so it looks like a mirror.
         frame = cv2.flip(frame, 2)
 
-        # start the tick counter for computing the processing time for each frame
-        e1 = cv2.getTickCount()
+        # process frame to find face
+        result, frame_size, gray_frame = face_detection.find_face(frame)
 
-        # transform the BGR frame in grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # get the frame size
-        frame_size = frame.shape[1], frame.shape[0]
-
-        # apply a bilateral filter to lower noise but keep frame details. create a 3D matrix from gray image to give it to the model
-        gray = np.expand_dims(cv2.bilateralFilter(gray, 5, 10, 10), axis=2)
-        gray = np.concatenate([gray, gray, gray], axis=2)
-
-        # find the faces using the face mesh model
-        lms = detector_face.process(gray).multi_face_landmarks
-
-        if lms:  # process the frame only if at least a face is found
+        # if at least one face is found
+        if result:
             # getting face landmarks and then take only the bounding box of the biggest face
-            landmarks = face_detection._get_landmarks(lms)
+            landmarks = face_detection._get_landmarks(result)
 
-            # shows the eye keypoints (can be commented)
-            Eye_det.show_eye_keypoints(
-                color_frame=frame, landmarks=landmarks, frame_size=frame_size)
-
-            # compute the EAR score of the eyes
-            ear = Eye_det.get_EAR(frame=gray, landmarks=landmarks)
-
-            # compute the Gaze Score
-            gaze = Eye_det.get_Gaze_Score(
-                frame=gray, landmarks=landmarks, frame_size=frame_size)
-
-            # compute the head pose
-            frame_det, roll, pitch, yaw = Head_pose.get_pose(
-                frame=frame, landmarks=landmarks, frame_size=frame_size)
+            ear, gaze, frame_det, roll, pitch, yaw = face_detection.process_face(landmarks, frame, frame_size, gray_frame)
             
-            roll -= roll_offset
-            pitch -= pitch_offset
-            yaw -= yaw_offset
-            
-            
-            # evaluate the scores for EAR, GAZE and HEAD POSE
-            
-            global asleep
-            global distracted
-            asleep, distracted = Scorer.eval_scores(t_now=t_now,
-                                                                  ear_score=ear,
-                                                                  gaze_score=gaze,
-                                                                  head_roll=roll,
-                                                                  head_pitch=pitch,
-                                                                  head_yaw=yaw)
-
             # if the head pose estimation is successful, show the results
             if frame_det is not None:
                 frame = frame_det
+                
+            # Recalculate roll, pitch and yaw given offset values from calibration
+            roll -= roll_offset
+            pitch -= pitch_offset
+            yaw -= yaw_offset
+    
+            global asleep
+            global distracted
+            # Evaluate scores given the offset values we found in calibration
+            asleep, distracted =face_detection.evaluate_scores(t_now, ear, gaze, roll, pitch, yaw)
 
             # show the real-time EAR score
             if ear is not None:
@@ -194,7 +164,8 @@ def main():
             if gaze is not None:
                 cv2.putText(frame, "Gaze Score:" + str(round(gaze, 3)), (10, 80),
                             cv2.FONT_HERSHEY_PLAIN, 2, (255, 255, 255), 1, cv2.LINE_AA)
-            
+                
+            # display head position values
             if roll is not None:
                 cv2.putText(frame, "roll:"+str(roll.round(1)[0]), (450, 40),
                             cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
@@ -206,7 +177,6 @@ def main():
                             cv2.FONT_HERSHEY_PLAIN, 1.5, (255, 0, 255), 1, cv2.LINE_AA)
 
             # if the state of attention of the driver is not normal, show an alert on screen
-                        
             if asleep:
                 cv2.putText(frame, "ASLEEP!", (10, 300),
                             cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 1, cv2.LINE_AA)
@@ -214,18 +184,22 @@ def main():
                 cv2.putText(frame, "DISTRACTED!", (10, 340),
                             cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 255), 1, cv2.LINE_AA)
         
+        # If there is no face detected
         else:
             cv2.putText(frame, "FACE NOT FOUND!", (10, 340),
                             cv2.FONT_HERSHEY_PLAIN, 1, (0, 0, 255), 1, cv2.LINE_AA)
             
-
-        # stop the tick counter for computing the processing time for each frame
         e2 = cv2.getTickCount()
+        
         # processign time in milliseconds
         proc_time_frame_ms = ((e2 - e1) / cv2.getTickFrequency()) * 1000
-
-        # Show proc time
+        proc_time_total += proc_time_frame_ms
+        avg_proc_time = proc_time_total / (i+1)
+        
+        # Show proc time and avg proc time
         cv2.putText(frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
+                        (255, 0, 255), 1)
+        cv2.putText(frame, "AVG PROC. TIME FRAME:" + str(round(avg_proc_time, 0)) + 'ms', (10, 500), cv2.FONT_HERSHEY_PLAIN, 2,
                         (255, 0, 255), 1)
 
         # show the frame on screen
@@ -233,6 +207,7 @@ def main():
 
         # if the key "q" is pressed on the keyboard, the program is terminated
         if cv2.waitKey(20) & 0xFF == ord('q'):
+            # raise exit_thread flag to exit from thread
             global exit_thread
             exit_thread = True
             time.sleep(1)
@@ -241,9 +216,10 @@ def main():
         
         i += 1
     
-    
     cap.release()
     cv2.destroyAllWindows()
+    
+    ################### END OF FACE DETECTION #########################################################
 
     return
 
