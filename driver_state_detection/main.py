@@ -16,6 +16,7 @@ yaw_offset = 0
 exit_thread = False
 asleep = False
 distracted = False
+fps = 0
 
 def main():
     hand_detector = hand_detection.setup_hand_detector()
@@ -39,12 +40,15 @@ def main():
 
     i = 0
     proc_time_total = 0
-    is_pinch_detected = False
-    is_face_valid = False
+    fps_start_time = time.perf_counter()
+    frame_count = 0
 
     while True:  
+
+        is_pinch_detected = False
+        is_face_valid = False
+
         e1 = cv2.getTickCount()
-        t_now = time.perf_counter()
 
         ret, frame = cap.read()
         
@@ -89,9 +93,19 @@ def main():
         average_proc_time = proc_time_total / (i+1)
         
         # display proc time and avg proc time
-        cv2.putText(frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 255), 2)
-        cv2.putText(frame, "AVG PROC. TIME FRAME:" + str(round(average_proc_time, 0)) + 'ms', (10, 500), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 255), 2)
+        cv2.putText(frame, "AVG PROC. TIME FRAME:" + str(round(average_proc_time, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2, (255, 0, 255), 2)
         
+        # Calculate FPS
+        frame_count += 1
+
+        if time.perf_counter() - fps_start_time >= 1:
+            global fps
+            fps = frame_count / (time.perf_counter() - fps_start_time)
+            frame_count = 0
+            fps_start_time = time.perf_counter()
+
+        cv2.putText(frame, "FPS: " + str(round(fps)), (10, 470), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
+
         # display frame on screen
         cv2.imshow("Calibrating", frame)
         
@@ -117,6 +131,8 @@ def main():
     sound_thread.start()
     
     i = 0
+    fps_start_time = time.perf_counter()
+    frame_count = 0
     proc_time_total = 0
 
     while True:
@@ -197,11 +213,19 @@ def main():
         proc_time_total += proc_time_frame_ms
         avg_proc_time = proc_time_total / (i+1)
         
-        # Show proc time and avg proc time
-        cv2.putText(frame, "PROC. TIME FRAME:" + str(round(proc_time_frame_ms, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
+        # Show avg proc time
+        cv2.putText(frame, "AVG PROC. TIME FRAME:" + str(round(avg_proc_time, 0)) + 'ms', (10, 430), cv2.FONT_HERSHEY_PLAIN, 2,
                         (255, 0, 255), 1)
-        cv2.putText(frame, "AVG PROC. TIME FRAME:" + str(round(avg_proc_time, 0)) + 'ms', (10, 500), cv2.FONT_HERSHEY_PLAIN, 2,
-                        (255, 0, 255), 1)
+
+        # Calculate FPS
+        frame_count += 1
+
+        if time.perf_counter() - fps_start_time >= 1:
+            fps = frame_count / (time.perf_counter() - fps_start_time)
+            frame_count = 0
+            fps_start_time = time.perf_counter()
+
+        cv2.putText(frame, "FPS: " + str(round(fps)), (10, 470), cv2.FONT_HERSHEY_PLAIN, 2, (0, 255, 0), 2)
 
         # show the frame on screen
         cv2.imshow("Press 'q' to terminate", frame)
