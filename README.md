@@ -45,5 +45,5 @@ SSH into Pi:
 - Connect using the VNC client and you will be granted access to view Pi's display
   
 ## Referenced Work
-- Face Detection: 
+- Face Detection: https://github.com/e-candeloro/Driver-State-Detection.git (MIT License) Based on the paper: https://www.researchgate.net/publication/327942674_Vision-Based_Driver's_Attention_Monitoring_System_for_Smart_Vehicles
 - Hand Detection: 
