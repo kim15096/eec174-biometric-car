@@ -1,10 +1,10 @@
 # EEC174BY - Machine Learning Senior Design Project
-## Safety Feature for Distracted/Asleep Drivers
+## Implementing Safety Features for Distracted/Asleep Drivers
 - Team Biometric Car
 - Team Members: Andrew Kim, Jiakang Pei, Logain Abdelhafiz
 
 ## Abstract
-
+In this project, we are using mediapipe to detect whether a driver is distracted or asleep. ...
 
 ## Setup on Computer
 1. Clone this repository
