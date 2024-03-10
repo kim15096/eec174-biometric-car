@@ -4,9 +4,7 @@
 
 ## Setup on Computer
 1. Clone this repository
-2. Install required dependencies using
-
-```pip3 install -r requirements.txt```   *There may be additional dependencies required. Please use pip install accordingly.
+2. Install required dependencies using ```pip3 install -r requirements.txt``` *There may be additional dependencies required. Please use pip install accordingly.
 
 3. Run ```python3 main.py``` in the root directory
 
