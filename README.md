@@ -1,6 +1,10 @@
-# EEC174BY - Machine Learning Senior Design Project 
+# EEC174BY - Machine Learning Senior Design Project
+## Safety Feature for Distracted/Asleep Drivers
 - Team Biometric Car
 - Team Members: Andrew Kim, Jiakang Pei, Logain Abdelhafiz
+
+## Abstract
+
 
 ## Setup on Computer
 1. Clone this repository
