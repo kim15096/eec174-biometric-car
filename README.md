@@ -48,4 +48,4 @@ SSH into Pi:
   
 ## Referenced Work
 - Face Detection: https://github.com/e-candeloro/Driver-State-Detection.git (MIT License) Based on the paper: https://www.researchgate.net/publication/327942674_Vision-Based_Driver's_Attention_Monitoring_System_for_Smart_Vehicles
-- Hand Detection: 
+- Hand Detection: https://developers.google.com/mediapipe/solutions/vision/hand_landmarker/python#live-stream
