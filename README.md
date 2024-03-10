@@ -11,6 +11,9 @@
 3. Run ```python3 main.py``` in the root directory
 
 ## Setup on Raspberry Pi
+
+![pi_image](https://github.com/kim15096/eec174-biometric-car/assets/14260072/83e1c624-2833-45c5-a15c-a402322c5977)
+
 Requirements:
 - Raspberry Pi 4 (other models not tested)
 - USB Webcam (at least 30fps)
