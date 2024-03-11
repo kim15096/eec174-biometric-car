@@ -259,6 +259,7 @@ def play_sound():
             pygame.mixer.init()
             pygame.mixer.music.load(sound_file)
             pygame.mixer.music.play()
+            pygame.mixer.music.set_volume(0.8)
             while pygame.mixer.music.get_busy():
                 pygame.time.Clock().tick(10)
         
@@ -267,6 +268,7 @@ def play_sound():
             pygame.mixer.init()
             pygame.mixer.music.load(sound_file)
             pygame.mixer.music.play()
+            pygame.mixer.music.set_volume(0.8)
             while pygame.mixer.music.get_busy():
                 pygame.time.Clock().tick(10)
         
