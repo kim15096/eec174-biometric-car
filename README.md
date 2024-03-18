@@ -45,6 +45,16 @@ SSH into Pi:
 - Find ip address of ethernet connection using ```ifconfig```
 - Run ```ssh hostname@ip_address``` on computer's terminal (MacOS and Linux only)
 - Connect using the VNC client and you will be granted access to view Pi's display
+
+## The Result
+<img width="1068" alt="Set-up" src="https://github.com/kim15096/eec174-biometric-car/assets/114887225/44078958-062b-4f89-8e97-bafe61bc2e7c">
+
+![calibration](https://github.com/kim15096/eec174-biometric-car/assets/114887225/25434dee-f58b-400f-891d-99a685819d8b)
+
+![distracted_right](https://github.com/kim15096/eec174-biometric-car/assets/114887225/271a9c34-3316-4822-a33c-5d61b1750707)
+
+![asleep](https://github.com/kim15096/eec174-biometric-car/assets/114887225/ce19bd8f-5916-4f23-bcdd-c7558090fe06)
+
   
 ## Referenced Work
 - Face Detection: https://github.com/e-candeloro/Driver-State-Detection.git (MIT License) Based on the paper: https://www.researchgate.net/publication/327942674_Vision-Based_Driver's_Attention_Monitoring_System_for_Smart_Vehicles
