@@ -47,7 +47,7 @@ SSH into Pi:
 - Connect using the VNC client and you will be granted access to view Pi's display
 
 ## The Result
-<img width="1068" alt="Set-up" src="https://github.com/kim15096/eec174-biometric-car/assets/114887225/44078958-062b-4f89-8e97-bafe61bc2e7c"width="400" height="400">
+<img width="1068" alt="Set-up" src="https://github.com/kim15096/eec174-biometric-car/assets/114887225/44078958-062b-4f89-8e97-bafe61bc2e7c" width="400" height="400">
 
 ![calibration](https://github.com/kim15096/eec174-biometric-car/assets/114887225/25434dee-f58b-400f-891d-99a685819d8b)
 
