@@ -14,7 +14,7 @@ This project report presents an advanced safety system that uses A.I. and camera
 
 ## Setup on Raspberry Pi
 
-<img src="https://github.com/kim15096/eec174-biometric-car/assets/14260072/83e1c624-2833-45c5-a15c-a402322c5977" width="300" height="300">
+<img src="https://github.com/kim15096/eec174-biometric-car/assets/14260072/83e1c624-2833-45c5-a15c-a402322c5977" width="150" height="200">
 
 Requirements:
 - Raspberry Pi 4 (other models not tested)
