@@ -4,7 +4,7 @@
 - Team Members: Andrew Kim, Jiakang Pei, Logain Abdelhafiz
 
 ## Abstract
-In this project, we are using mediapipe to detect whether a driver is distracted or asleep. ...
+This project report presents an advanced safety system that uses A.I. and cameras to detect driver drowsiness and distraction, aiming to warn drivers proactively and prevent accidents. By integrating pre-existing technologies that are found in modern cars such as speakers and sensors, our program identifies signs of fatigue or inattention and delivers timely alerts, promoting safer driving habits. Through meticulous development and testing, this project emphasizes the significance of utilizing A.I. and camera technology to improve road safety and prevent potential accidents.
 
 ## Setup on Computer
 1. Clone this repository
